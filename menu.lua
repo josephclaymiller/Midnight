@@ -25,9 +25,9 @@ local function onPlayBtnRelease()
 	{
 	    effect = "fade",
 	    time = 800,
-	    params = { levelStars = 3 }
+	    params = { level = 1 }
 	}
-	storyboard.gotoScene( "level1", options )
+	storyboard.gotoScene( "starLevel", options )
 	
 	return true	-- indicates successful touch
 end

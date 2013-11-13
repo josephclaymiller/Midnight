@@ -19,7 +19,8 @@ local starTable = {} -- table to hold stars by id
 local touchable = false -- boolean to keep track of when the player can touch the stars
 local starRadius = 8
 local totalStars -- number of stars to find
-local collectedStars -- number of stars collected so far
+local collectedStars -- number of correct stars collected so far
+local currentLevel -- the current level number
 
 local makeStar -- function to make star
 local makeRandomStar -- function to make a star in a random location
@@ -31,6 +32,7 @@ local showStarPattern -- Lights up stars with ids in given table
 local uncolorAllStars
 local startRound -- function to start the current round
 local endRound -- function to end the current round
+local calculateScore -- function to determine score
 
 -- Sounds
 local twinkleSound = audio.loadStream("sounds/twnkle.mp3")
@@ -72,7 +74,8 @@ function scene:enterScene( event )
 	print("background music channel:" .. backgroundMusicChannel)
 	
 	-- Show star pattern after 1.5 second
-	totalStars = event.params.levelStars
+	currentLevel = event.params.level
+	totalStars = currentLevel + 2
 	local patternClosure = function() return showStarPattern(totalStars) end
 	timer.performWithDelay( 1000, patternClosure, 1 )
 end
@@ -99,9 +102,13 @@ showStarPattern = function(n)
 		colorStar(star, 1, 1, 0) -- color star yellow
 	end
 	-- play sound effect
-	audio.play( twinkleSound, { channel=starChannel }  )
+	local soundOptions = { 
+		channel=starChannel,
+		onComplete=startRound
+	}
+	audio.play( twinkleSound, soundOptions  )
 	-- Start round after delay
-	timer.performWithDelay( 3000, startRound, 1 )
+	--timer.performWithDelay( 3000, startRound, 1 )
 end
 
 uncolorAllStars = function()
@@ -158,6 +165,7 @@ onStarTouch = function( event )
 			audio.play( hitSound, { channel=starChannel, duration=hitSoundLength }  )
 		else
 			colorStar(star, 1, 0, 0) -- color star red
+			star.collected = true
 			audio.play( missSound, { channel=starChannel, duration=hitSoundLength }  )
 		end
     end
@@ -193,11 +201,50 @@ end
 
 endRound = function()
 	touchable = false
-	uncolorAllStars()
 	-- go to menu scene
-	storyboard.gotoScene( "levelMenu", "fade", 500 )
+	local options =
+	{
+	    effect = "fade",
+	    time = 500,
+	    params = { 
+			level = currentLevel,
+			score = calculateScore()
+		}
+	}
+	local sceneClosure = function() 
+		uncolorAllStars()
+		storyboard.gotoScene( "endofLevelMenu", options ) 
+	end
+	timer.performWithDelay( 1000, sceneClosure, 1 )
 end
 
+calculateScore = function()
+	local correctGuesses = 0
+	local wrongGuesses = 0
+	local totalGuesses = 0
+	local pointsForCorrect = 2
+	local pointsForWrong = -1
+	local score = 0
+	for key,star in ipairs(starTable) do
+		if star.collected then
+			if star.shine then
+				score = score + pointsForCorrect
+				correctGuesses = correctGuesses + 1
+			else
+				wrongGuesses = wrongGuesses + 1
+				score = score + pointsForWrong
+			end
+			totalGuesses = totalGuesses + 1	
+		end
+	end
+	if not correctGuesses == totalStars then
+		print ("Did not collect all stars")
+	end
+	print ("Right guesses: " .. correctGuesses)
+	print ("Wrong guesses: " .. wrongGuesses)
+	print ("score :" .. score)
+	return score
+end
 -----------------------------------------------------------------------------------------
 -- END OF YOUR IMPLEMENTATION
 -----------------------------------------------------------------------------------------

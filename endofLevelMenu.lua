@@ -15,7 +15,10 @@ local scene = storyboard.newScene()
 local screenW, screenH = display.contentWidth, display.contentHeight
 local halfW, halfH = display.contentCenterX, display.contentCenterY
 
-local currentLevel -- the current level number (of the level about to play)
+local currentLevel -- the level number of the level just completed
+local score -- the score from the level just completed
+local levelMessage -- display level completed
+local scoreMessage -- display score
 
 -----------------------------------------------------------------------------------------
 -- BEGINNING OF YOUR IMPLEMENTATION
@@ -28,7 +31,21 @@ local currentLevel -- the current level number (of the level about to play)
 -- Called when the scene's view does not exist:
 function scene:createScene( event )
 	local group = self.view
-
+	
+	-- show instructions
+	local messageBox = display.newGroup()
+	messageBox.anchorX, messageBox.anchorY = 0.5, 0.5
+	messageBox.x, messageBox.y = halfW, halfH
+	local messageBoxBackground = display.newRect(0,0,screenW*0.75, screenH*0.75)
+	messageBoxBackground.fill = {0.2,0.1,0.2}
+	messageBox:insert(messageBoxBackground)
+	levelMessage = display.newText("",0,0,native.systemFont,18)
+	messageBox:insert(levelMessage)
+	levelMessage.y = -screenH*0.25
+	scoreMessage = display.newText("",0,0,native.systemFont,18)
+	messageBox:insert(scoreMessage)
+	
+	group:insert(messageBox)
 end
 
 -- Called immediately after scene has moved onscreen:
@@ -36,12 +53,17 @@ function scene:enterScene( event )
 	local group = self.view
 
 	currentLevel = event.params.level
-
+	score = event.params.score
+	
+	levelMessage.text = "Level " .. currentLevel
+	scoreMessage.text = "Score: " .. score
+	
+	nextLevel = currentLevel + 1
 	local options =
 	{
 	    effect = "fade",
 	    time = 800,
-	    params = { level = currentLevel }
+	    params = { level = nextLevel }
 	}
 	local sceneClosure = function() storyboard.gotoScene( "starLevel", options ) end
 	timer.performWithDelay( 1000, sceneClosure, 1 )
