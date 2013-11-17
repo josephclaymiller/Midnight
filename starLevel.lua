@@ -17,7 +17,7 @@ local halfW, halfH = display.contentCenterX, display.contentCenterY
 
 local starTable = {} -- table to hold stars by id
 local touchable = false -- boolean to keep track of when the player can touch the stars
-local starRadius = 8
+local starRadius = 20
 local totalStars -- number of stars to find
 local collectedStars -- number of correct stars collected so far
 local currentLevel -- the current level number
@@ -25,6 +25,7 @@ local currentLevel -- the current level number
 local makeStar -- function to make star
 local makeRandomStar -- function to make a star in a random location
 local makeStars -- function to make n stars
+local makeStarGrid -- function to make stars in a grid formation
 local onStarTouch -- event listener for stars
 local colorStar -- function to make star shine
 local uncolorStar -- function to return star to normal
@@ -42,6 +43,7 @@ local missSound = audio.loadStream("sounds/wrong.mp3")
 local backgroundMusicChannel = 1
 local starChannel = 2
 local hitSoundLength = 500
+
 -----------------------------------------------------------------------------------------
 -- BEGINNING OF YOUR IMPLEMENTATION
 -- 
@@ -53,11 +55,11 @@ local hitSoundLength = 500
 -- Called when the scene's view does not exist:
 function scene:createScene( event )
 	local group = self.view
-	
 	math.randomseed(1)-- seed random so same stars each time
 	
 	-- create stars
-	local stars = makeStars(30) --display.newGroup(screenW, screenH)
+	local stars = makeStars(10) --display.newGroup(screenW, screenH)
+	--local stars = makeStarGrid()
 	stars.anchorX, stars.anchorY = 0.5, 0.5
 	stars.x, stars.y = 0, 0 --halfW, halfH
 
@@ -75,7 +77,7 @@ function scene:enterScene( event )
 	
 	-- Show star pattern after 1.5 second
 	currentLevel = event.params.level
-	totalStars = currentLevel + 2
+	totalStars = currentLevel
 	local patternClosure = function() return showStarPattern(totalStars) end
 	timer.performWithDelay( 1000, patternClosure, 1 )
 end
@@ -95,11 +97,13 @@ end
 -----------------------------------------------------------------------------------------
 -- Game functions
 -----------------------------------------------------------------------------------------
+local colorBlurEffect = require( "kernel_filter_color_blur_gl" )
+graphics.defineEffect( colorBlurEffect )
+
 showStarPattern = function(n)
 	for i=1, n do
-		star = starTable[i]
-		star.shine = true
-		colorStar(star, 1, 1, 0) -- color star yellow
+		starTable[i].shine = true
+		colorStar(starTable[i], 1, 1, 0) -- color star yellow
 	end
 	-- play sound effect
 	local soundOptions = { 
@@ -130,6 +134,30 @@ makeStars = function(n)
 	return stars
 end
 
+makeStarGrid = function()
+	local stars = display.newGroup(screenW, screenH)
+	local tileSize = starRadius * 4
+	local cols = screenW / tileSize
+	local rows = screenH / tileSize
+	local offset = 0
+	local i = 1
+	for r =1, rows do
+		for c=1, cols do
+			i = i + 1
+			--print ("row:"..r.."col:"..c)
+			local x = c * tileSize + offset
+			local y = r * tileSize + offset
+			local star = makeStar(x,y)
+			star.id = i
+			starTable[star.id] = star
+			star:addEventListener( "touch", onStarTouch )
+			stars:insert(star)
+
+		end
+	end
+	return stars
+end
+
 makeRandomStar = function()
 	local buffer = starRadius
 	local currentX = math.random(buffer, screenW - buffer)
@@ -139,11 +167,20 @@ makeRandomStar = function()
 end
 
 makeStar = function(x, y)
-	local star = display.newImageRect( "images/star.png", starRadius*2, starRadius*2)
+	local star = display.newSnapshot( starRadius*2.5, starRadius*2.5 )
+	local starGroup = star.group
+	local starCircle = display.newCircle( 0, 0,  starRadius)
+	starCircle:setFillColor(1,1,1,0.8 )
+	starGroup:insert(starCircle)
+	star.fill.effect = "filter.colorBlurGaussian"
+--[[local star = display.newImageRect( "images/star.png", starRadius*2, starRadius*2)]]
 	star.anchorX, star.anchorY = 0.5, 0.5
 	star.x, star.y = x, y
 	star.shine = false
 	star.collected = false
+	star.fill.effect.horizontal.blurSize = starRadius*0.5
+	star.fill.effect.vertical.blurSize = starRadius*0.5
+	uncolorStar(star) -- uncolor star (color white)
 	return star
 end
 
@@ -180,17 +217,20 @@ onStarTouch = function( event )
 end
 
 colorStar = function(star, r, g, b)
-	print( "Color star " .. star.id )
+	--print( "Color star " .. star.id )
 	-- colorize with filter
-	star.fill.effect = "filter.monotone"
-	star.fill.effect.r = r
-	star.fill.effect.g = g
-	star.fill.effect.b = b
+	--star.fill.effect = "filter.monotone"
+	star.fill.effect.monotone.r = r
+	star.fill.effect.monotone.g = g
+	star.fill.effect.monotone.b = b
+	star.fill.effect.monotone.a = 0.8
 end
 
 uncolorStar = function(star)
 	--star.shine = false
-	star.fill.effect = nil -- remove fill effect
+	--star.fill.effect = nil -- remove fill effect
+	w = 0.8 --whiteness
+	colorStar(star,w,w,w)
 end
 
 startRound = function()
@@ -201,8 +241,8 @@ end
 
 endRound = function()
 	touchable = false
-	-- go to menu scene
-	local options =
+	-- go to end level menu scene
+	local endLevelOptions =
 	{
 	    effect = "fade",
 	    time = 500,
@@ -213,9 +253,10 @@ endRound = function()
 	}
 	local sceneClosure = function() 
 		uncolorAllStars()
-		storyboard.gotoScene( "endofLevelMenu", options ) 
+		storyboard.gotoScene( "endofLevelMenu", endLevelOptions ) 
 	end
-	timer.performWithDelay( 1000, sceneClosure, 1 )
+	-- play sound effect to indicate round completed
+	audio.play( twinkleSound, {onComplete=sceneClosure} )
 end
 
 calculateScore = function()
@@ -243,6 +284,9 @@ calculateScore = function()
 	print ("Right guesses: " .. correctGuesses)
 	print ("Wrong guesses: " .. wrongGuesses)
 	print ("score :" .. score)
+	if score < 0 then
+		score = 0 -- no negative scores
+	end
 	return score
 end
 -----------------------------------------------------------------------------------------
