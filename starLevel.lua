@@ -15,16 +15,10 @@ local scene = storyboard.newScene()
 local screenW, screenH = display.contentWidth, display.contentHeight
 local halfW, halfH = display.contentCenterX, display.contentCenterY
 
-local starTable = {} -- table to hold stars by id
-local touchable = false -- boolean to keep track of when the player can touch the stars
-local starRadius = 20
-local totalStars -- number of stars to find
-local collectedStars -- number of correct stars collected so far
-local currentLevel -- the current level number
-
+-- functions
 local makeStar -- function to make star
 local makeRandomStar -- function to make a star in a random location
-local makeStars -- function to make n stars
+local makeRandomStars -- function to make n stars in random locations
 local makeStarGrid -- function to make stars in a grid formation
 local onStarTouch -- event listener for stars
 local colorStar -- function to make star shine
@@ -34,6 +28,8 @@ local uncolorAllStars
 local startRound -- function to start the current round
 local endRound -- function to end the current round
 local calculateScore -- function to determine score
+local showScore -- function to display score in scene
+local moveStarsRandom -- function to move the stars randomly
 
 -- Sounds
 local twinkleSound = audio.loadStream("sounds/twnkle.mp3")
@@ -43,6 +39,18 @@ local missSound = audio.loadStream("sounds/wrong.mp3")
 local backgroundMusicChannel = 1
 local starChannel = 2
 local hitSoundLength = 500
+
+-- Game variables
+local totalStars = 12-- total stars on screen
+local maxCollectable 
+local collectableStars -- number of stars to find
+local collectedStars -- number of correct stars collected so far
+local currentLevel -- the current level number
+local starTable = {} -- table to hold stars by id
+local touchable = false -- boolean to keep track of when the player can touch the stars
+local starRadius = 20
+local stars -- display group to hold the stars
+
 
 -----------------------------------------------------------------------------------------
 -- BEGINNING OF YOUR IMPLEMENTATION
@@ -56,15 +64,24 @@ local hitSoundLength = 500
 function scene:createScene( event )
 	local group = self.view
 	math.randomseed(1)-- seed random so same stars each time
-	
+
 	-- create stars
-	local stars = makeStars(10) --display.newGroup(screenW, screenH)
+	totalStars = event.params.level * 2 + 8
+	maxCollectable = totalStars/2
+
+	stars = makeRandomStars(totalStars)
 	--local stars = makeStarGrid()
 	stars.anchorX, stars.anchorY = 0.5, 0.5
 	stars.x, stars.y = 0, 0 --halfW, halfH
 
 	-- all display objects must be inserted into group
 	group:insert( stars )
+
+	-- Hide stars
+	for key,star in  ipairs(starTable) do	
+		star.alpha = 0
+	end
+	
 end
 
 -- Called immediately after scene has moved onscreen:
@@ -75,16 +92,32 @@ function scene:enterScene( event )
 	audio.play( backgroundMusic, { channel=backgroundMusicChannel, loops=-1, fadein=1000 }  )
 	print("background music channel:" .. backgroundMusicChannel)
 	
-	-- Show star pattern after 1.5 second
+	-- Move stars
+	moveStarsRandom()
+
+	-- Show stars
+	for key,star in  ipairs(starTable) do	
+		star.alpha = 1
+	end
+
+	-- Show star pattern after a second
 	currentLevel = event.params.level
-	totalStars = currentLevel
-	local patternClosure = function() return showStarPattern(totalStars) end
+	collectableStars = currentLevel
+	if collectableStars > maxCollectable then
+		collectableStars = maxCollectable
+	end
+	local patternClosure = function() return showStarPattern(collectableStars) end
 	timer.performWithDelay( 1000, patternClosure, 1 )
 end
 
 -- Called when scene is about to move offscreen:
 function scene:exitScene( event )
 	local group = self.view
+
+	-- hide stars
+	for key,star in  ipairs(starTable) do	
+		star.alpha = 0
+	end
 	
 end
 
@@ -122,13 +155,10 @@ uncolorAllStars = function()
 	end
 end
 
-makeStars = function(n)
+makeRandomStars = function(n)
 	local stars = display.newGroup(screenW, screenH)
 	for i=1, n do
-		local star = makeRandomStar()
-		star.id = i
-		starTable[star.id] = star
-		star:addEventListener( "touch", onStarTouch )
+		local star = makeRandomStar(i)
 		stars:insert(star)
 	end
 	return stars
@@ -139,7 +169,7 @@ makeStarGrid = function()
 	local tileSize = starRadius * 4
 	local cols = screenW / tileSize
 	local rows = screenH / tileSize
-	local offset = 0
+	local offset = -tileSize*0.5
 	local i = 1
 	for r =1, rows do
 		for c=1, cols do
@@ -147,26 +177,22 @@ makeStarGrid = function()
 			--print ("row:"..r.."col:"..c)
 			local x = c * tileSize + offset
 			local y = r * tileSize + offset
-			local star = makeStar(x,y)
-			star.id = i
-			starTable[star.id] = star
-			star:addEventListener( "touch", onStarTouch )
+			local star = makeStar(i,x,y)
 			stars:insert(star)
-
 		end
 	end
 	return stars
 end
 
-makeRandomStar = function()
+makeRandomStar = function(id)
 	local buffer = starRadius
 	local currentX = math.random(buffer, screenW - buffer)
 	local currentY = math.random(buffer, screenH - buffer)
-	local star = makeStar(currentX, currentY)
+	local star = makeStar(id, currentX, currentY)
 	return star
 end
 
-makeStar = function(x, y)
+makeStar = function(id, x, y)
 	local star = display.newSnapshot( starRadius*2.5, starRadius*2.5 )
 	local starGroup = star.group
 	local starCircle = display.newCircle( 0, 0,  starRadius)
@@ -181,6 +207,9 @@ makeStar = function(x, y)
 	star.fill.effect.horizontal.blurSize = starRadius*0.5
 	star.fill.effect.vertical.blurSize = starRadius*0.5
 	uncolorStar(star) -- uncolor star (color white)
+	star.id = i
+	star:addEventListener( "touch", onStarTouch )
+	starTable[#starTable+1] = star
 	return star
 end
 
@@ -207,10 +236,10 @@ onStarTouch = function( event )
 		end
     end
     if event.phase == "ended" then
-		if collectedStars >= totalStars then
+		if collectedStars >= collectableStars then
 			endRound()
 		else
-			print (collectedStars .. "/" .. totalStars)
+			print (collectedStars .. "/" .. collectableStars)
 		end
 	end
     return true
@@ -231,6 +260,15 @@ uncolorStar = function(star)
 	--star.fill.effect = nil -- remove fill effect
 	w = 0.8 --whiteness
 	colorStar(star,w,w,w)
+end
+
+moveStarsRandom = function()
+	for key,star in  ipairs(starTable) do	
+		local currentX = math.random(starRadius, screenW - starRadius)
+		local currentY = math.random(starRadius, screenH - starRadius)
+		star.x = currentX
+		star.y = currentY
+	end
 end
 
 startRound = function()
@@ -278,7 +316,7 @@ calculateScore = function()
 			totalGuesses = totalGuesses + 1	
 		end
 	end
-	if not correctGuesses == totalStars then
+	if not correctGuesses == collectableStars then
 		print ("Did not collect all stars")
 	end
 	print ("Right guesses: " .. correctGuesses)
