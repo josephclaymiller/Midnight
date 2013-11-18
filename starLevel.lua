@@ -32,7 +32,9 @@ local showScore -- function to display score in scene
 local moveStarsRandom -- function to move the stars randomly
 local moveStarRandom -- moves a star to a random position
 local collidesAt -- fucntion to check if collides at x,y
-
+local startMovingStars -- start the star animation for collectable stars
+local randomlyMoveStar -- move star to a random location over time
+local blurStar -- set blur on star
 -- Sounds
 local twinkleSound = audio.loadStream("sounds/twnkle.mp3")
 local backgroundMusic = audio.loadStream("sounds/loop.mp3")
@@ -86,7 +88,7 @@ function scene:createScene( event )
 	local boxWidth = screenW*0.2
 	local boxHeight = screenH*0.2
 	local scoreBoxBackground = display.newRect(0,0, boxWidth, boxHeight )
-	scoreBoxBackground.fill = {0.2,0.1,0.2}
+	scoreBoxBackground.fill = { type="gradient", color1={ 0.2,0.1,0.2,1 }, color2={ 0,0,0,0 } }
 	scoreBox:insert( scoreBoxBackground )
 
 	scoreMessage = display.newText(tostring(totalScore),0,0,native.systemFont,18)
@@ -123,7 +125,7 @@ function scene:enterScene( event )
 
 	-- Show star pattern after a second
 	currentLevel = event.params.level
-	collectableStars = currentLevel
+	collectableStars = currentLevel + 1
 	if collectableStars > maxCollectable then
 		collectableStars = maxCollectable
 	end
@@ -173,16 +175,16 @@ end
 colorStar = function(star, r, g, b, a)
 	--print( "Color star " .. star.id )
 	-- colorize with filter
-	star.fill.effect.monotone.r = r
-	star.fill.effect.monotone.g = g
-	star.fill.effect.monotone.b = b
+	star.fill.effect.monotone.r = r or star.r
+	star.fill.effect.monotone.g = g or star.g
+	star.fill.effect.monotone.b = b or star.b
 	star.fill.effect.monotone.a = a or 0.8
 end
 
 uncolorStar = function(star)
 	--star.shine = false
 	--star.fill.effect = nil -- remove fill effect
-	w = 0.8 --whiteness
+	w = 0.5 --whiteness
 	colorStar(star,w,w,w)
 end
 
@@ -234,7 +236,8 @@ makeStar = function(id, x, y)
 	local star = display.newSnapshot( starRadius*2.5, starRadius*2.5 )
 	local starGroup = star.group
 	local starCircle = display.newCircle( 0, 0,  starRadius)
-	starCircle:setFillColor(1,1,1,0.8 )
+	local w = 0.75
+	starCircle:setFillColor(w,w,w,w)
 	starGroup:insert(starCircle)
 	star.fill.effect = "filter.colorBlurGaussian"
 --[[local star = display.newImageRect( "images/star.png", starRadius*2, starRadius*2)]]
@@ -242,8 +245,7 @@ makeStar = function(id, x, y)
 	star.x, star.y = x, y
 	star.shine = false
 	star.collected = false
-	star.fill.effect.horizontal.blurSize = starRadius*0.5
-	star.fill.effect.vertical.blurSize = starRadius*0.5
+	blurStar(star, starRadius*0.5)
 	uncolorStar(star) -- uncolor star (color white)
 	star.id = i
 	star:addEventListener( "touch", onStarTouch )
@@ -251,6 +253,7 @@ makeStar = function(id, x, y)
 	star.r = math.random( )
 	star.g = math.random( )
 	star.b = math.random( )
+	star.canvasMode = "discard"
 	return star
 end
 
@@ -272,6 +275,7 @@ onStarTouch = function( event )
 			audio.play( hitSound, { channel=starChannel, duration=hitSoundLength }  )
 		else
 			colorStar(star, 0, 0, 0) -- color star black
+			blurStar(star, starRadius*0.75)
 			star.collected = true
 			audio.play( missSound, { channel=starChannel, duration=hitSoundLength }  )
 		end
@@ -316,6 +320,7 @@ startRound = function()
 	uncolorAllStars()
 	collectedStars = 0
 	touchable = true
+	startMovingStars()
 end
 
 endRound = function()
@@ -365,6 +370,41 @@ calculateScore = function()
 	end
 	return score
 end
+
+randomlyMoveStar = function (star)
+	local travelTime = math.random(1000,2000)
+	local params
+	local moveStarclosure = function () return randomlyMoveStar(star) end
+	if math.random() < 0.25 then
+		local x2 = math.random(starRadius, screenW - starRadius)
+		local y2 = math.random(starRadius, screenH - starRadius)
+		params = {time=travelTime, x=x2, y=y2, onComplete=moveStarclosure}
+		colorStar(star)
+	else
+		params = {time=travelTime, onComplete=moveStarclosure}
+		uncolorStar(star)
+	end
+	transition.to(star, params)
+end
+
+startMovingStars = function()
+	for key,star in ipairs(starTable) do
+		if star.shine then
+			randomlyMoveStar(star)
+		end
+	end
+end
+
+blurStar = function( star, size )
+	star.fill.effect.horizontal.blurSize = size
+	star.fill.effect.vertical.blurSize = size
+end
+
+local function onEveryFrame(event)
+end
+
+Runtime:addEventListener("enterFrame",onEveryFrame)
+
 -----------------------------------------------------------------------------------------
 -- END OF YOUR IMPLEMENTATION
 -----------------------------------------------------------------------------------------

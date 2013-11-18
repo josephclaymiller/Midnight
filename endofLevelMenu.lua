@@ -37,12 +37,13 @@ function scene:createScene( event )
 	messageBox.anchorX, messageBox.anchorY = 0.5, 0.5
 	messageBox.x, messageBox.y = halfW, halfH
 	local messageBoxBackground = display.newRect(0,0,screenW*0.75, screenH*0.75)
-	messageBoxBackground.fill = {0.2,0.1,0.2}
+	--messageBoxBackground.fill = {0.2,0.1,0.2}
+	messageBoxBackground.fill = { type="gradient", color1={ 0.2,0.1,0.2,1 }, color2={ 0,0,0,0 } }
 	messageBox:insert(messageBoxBackground)
 	levelMessage = display.newText("",0,0,native.systemFont,18)
 	messageBox:insert(levelMessage)
 	levelMessage.y = -screenH*0.25
-	scoreMessage = display.newText("",0,0,native.systemFont,18)
+	scoreMessage = display.newText("",0,0,native.systemFont,24)
 	messageBox:insert(scoreMessage)
 	
 	group:insert(messageBox)

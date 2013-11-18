@@ -43,19 +43,6 @@ end
 -- Called when the scene's view does not exist:
 function scene:createScene( event )
 	local group = self.view
-
-	-- display a background image (480x720)
-	local background = display.newImageRect( "images/background.png", screenW*1.5, screenH*1.5 )
-	background.anchorX, background.anchorY = 0.5, 0.5
-	background.x, background.y = halfW, halfH
-	
-	-- create/position logo/title image on upper-half of the screen
-	--[[
-	local titleLogo = display.newImageRect( "logo.png", 264, 42 )
-	titleLogo.anchorX, titleLogo.anchorY = 0.5, 0.5
-	titleLogo.x = halfW
-	titleLogo.y = halfH
-	]]
 	
 	-- create a widget button (which will loads level1.lua on release)
 	playBtn = widget.newButton{
@@ -75,17 +62,13 @@ function scene:createScene( event )
 	tutorial.anchorX, tutorial.anchorY = 0.5, 0.5
 	tutorial.x, tutorial.y = halfW, halfH
 	local tutorialBox = display.newRect(0,0,screenW*0.75, screenH*0.75)
-	tutorialBox.fill = {0.2,0.1,0.2}
+	tutorialBox.fill = { type="gradient", color1={ 0.2,0.1,0.2,1 }, color2={ 0,0,0,0 } }
 	tutorial:insert(tutorialBox)
-	local tutorialText1 = display.newText("Remember which stars light up,",0,0,native.systemFont,18)
-	local tutorialText2 = display.newText("tap each of those stars.",0,0,native.systemFont,18)
+	local tutorialText1 = display.newText("Tap the dots that light up and move",0,0,native.systemFont,18)
 	tutorial:insert(tutorialText1)
-	tutorial:insert(tutorialText2)
-	tutorialText1.y = -screenH*0.1
+	--tutorialText1.y = -screenH*0.1
 	
 	-- all display objects must be inserted into group
-	group:insert( background )
-	--group:insert( titleLogo )
 	group:insert( tutorial )
 	group:insert( playBtn )
 end
