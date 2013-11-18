@@ -118,6 +118,9 @@ function scene:enterScene( event )
 	-- Move stars
 	moveStarsRandom()
 
+	-- Add another star
+	stars:insert(makeRandomStar())
+
 	-- Show stars
 	for key,star in  ipairs(starTable) do	
 		star.alpha = 1
@@ -245,7 +248,7 @@ makeStar = function(id, x, y)
 	star.x, star.y = x, y
 	star.shine = false
 	star.collected = false
-	blurStar(star, starRadius*0.5)
+	blurStar(star, starRadius*0.3)
 	uncolorStar(star) -- uncolor star (color white)
 	star.id = i
 	star:addEventListener( "touch", onStarTouch )
@@ -372,7 +375,8 @@ calculateScore = function()
 end
 
 randomlyMoveStar = function (star)
-	local travelTime = math.random(1000,2000)
+	if star.collected then return end
+	local travelTime = math.random(200,1000)
 	local params
 	local moveStarclosure = function () return randomlyMoveStar(star) end
 	if math.random() < 0.25 then
