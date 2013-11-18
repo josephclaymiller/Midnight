@@ -63,7 +63,10 @@ function scene:enterScene( event )
 	{
 	    effect = "fade",
 	    time = 800,
-	    params = { level = nextLevel }
+	    params = { 
+	    	level = nextLevel,
+	    	score = score
+	    }
 	}
 	local sceneClosure = function() storyboard.gotoScene( "starLevel", options ) end
 	timer.performWithDelay( 1000, sceneClosure, 1 )

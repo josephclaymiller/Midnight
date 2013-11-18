@@ -30,6 +30,8 @@ local endRound -- function to end the current round
 local calculateScore -- function to determine score
 local showScore -- function to display score in scene
 local moveStarsRandom -- function to move the stars randomly
+local moveStarRandom -- moves a star to a random position
+local collidesAt -- fucntion to check if collides at x,y
 
 -- Sounds
 local twinkleSound = audio.loadStream("sounds/twnkle.mp3")
@@ -50,7 +52,8 @@ local starTable = {} -- table to hold stars by id
 local touchable = false -- boolean to keep track of when the player can touch the stars
 local starRadius = 20
 local stars -- display group to hold the stars
-
+local scoreMessage -- message to display current score
+local totalScore -- cumlitive score
 
 -----------------------------------------------------------------------------------------
 -- BEGINNING OF YOUR IMPLEMENTATION
@@ -63,7 +66,7 @@ local stars -- display group to hold the stars
 -- Called when the scene's view does not exist:
 function scene:createScene( event )
 	local group = self.view
-	math.randomseed(1)-- seed random so same stars each time
+	math.randomseed(1313)-- seed random so same stars each time
 
 	-- create stars
 	totalStars = event.params.level * 2 + 8
@@ -74,8 +77,24 @@ function scene:createScene( event )
 	stars.anchorX, stars.anchorY = 0.5, 0.5
 	stars.x, stars.y = 0, 0 --halfW, halfH
 
+	-- Score
+	totalScore = event.params.score
+	local scoreBox = display.newGroup()
+	scoreBox.anchorChildren = true
+	scoreBox.anchorX, scoreBox.anchorY = 0,0
+	scoreBox.x, scoreBox.y = 0,0
+	local boxWidth = screenW*0.2
+	local boxHeight = screenH*0.2
+	local scoreBoxBackground = display.newRect(0,0, boxWidth, boxHeight )
+	scoreBoxBackground.fill = {0.2,0.1,0.2}
+	scoreBox:insert( scoreBoxBackground )
+
+	scoreMessage = display.newText(tostring(totalScore),0,0,native.systemFont,18)
+	scoreBox:insert(scoreMessage)
+
 	-- all display objects must be inserted into group
 	group:insert( stars )
+	group:insert( scoreBox )
 
 	-- Hide stars
 	for key,star in  ipairs(starTable) do	
@@ -88,6 +107,8 @@ end
 function scene:enterScene( event )
 	local group = self.view
 	
+	totalScore = event.params.score
+
 	-- start background music
 	audio.play( backgroundMusic, { channel=backgroundMusicChannel, loops=-1, fadein=1000 }  )
 	print("background music channel:" .. backgroundMusicChannel)
@@ -135,8 +156,9 @@ graphics.defineEffect( colorBlurEffect )
 
 showStarPattern = function(n)
 	for i=1, n do
-		starTable[i].shine = true
-		colorStar(starTable[i], 1, 1, 0) -- color star yellow
+		local star = starTable[i]
+		star.shine = true
+		colorStar(star, star.r, star.g, star.b) -- color star
 	end
 	-- play sound effect
 	local soundOptions = { 
@@ -146,6 +168,22 @@ showStarPattern = function(n)
 	audio.play( twinkleSound, soundOptions  )
 	-- Start round after delay
 	--timer.performWithDelay( 3000, startRound, 1 )
+end
+
+colorStar = function(star, r, g, b, a)
+	--print( "Color star " .. star.id )
+	-- colorize with filter
+	star.fill.effect.monotone.r = r
+	star.fill.effect.monotone.g = g
+	star.fill.effect.monotone.b = b
+	star.fill.effect.monotone.a = a or 0.8
+end
+
+uncolorStar = function(star)
+	--star.shine = false
+	--star.fill.effect = nil -- remove fill effect
+	w = 0.8 --whiteness
+	colorStar(star,w,w,w)
 end
 
 uncolorAllStars = function()
@@ -210,6 +248,9 @@ makeStar = function(id, x, y)
 	star.id = i
 	star:addEventListener( "touch", onStarTouch )
 	starTable[#starTable+1] = star
+	star.r = math.random( )
+	star.g = math.random( )
+	star.b = math.random( )
 	return star
 end
 
@@ -225,12 +266,12 @@ onStarTouch = function( event )
 			return -- exit early if star has already been collected
 		end
 		if star.shine then
-			colorStar(star, 1, 1, 0) -- color star yellow
+			colorStar(star, star.r, star.g, star.b) -- color star
 			collectedStars = collectedStars + 1
 			star.collected = true
 			audio.play( hitSound, { channel=starChannel, duration=hitSoundLength }  )
 		else
-			colorStar(star, 1, 0, 0) -- color star red
+			colorStar(star, 0, 0, 0) -- color star black
 			star.collected = true
 			audio.play( missSound, { channel=starChannel, duration=hitSoundLength }  )
 		end
@@ -242,33 +283,33 @@ onStarTouch = function( event )
 			print (collectedStars .. "/" .. collectableStars)
 		end
 	end
+	showScore()
     return true
 end
 
-colorStar = function(star, r, g, b)
-	--print( "Color star " .. star.id )
-	-- colorize with filter
-	--star.fill.effect = "filter.monotone"
-	star.fill.effect.monotone.r = r
-	star.fill.effect.monotone.g = g
-	star.fill.effect.monotone.b = b
-	star.fill.effect.monotone.a = 0.8
-end
-
-uncolorStar = function(star)
-	--star.shine = false
-	--star.fill.effect = nil -- remove fill effect
-	w = 0.8 --whiteness
-	colorStar(star,w,w,w)
-end
-
 moveStarsRandom = function()
-	for key,star in  ipairs(starTable) do	
-		local currentX = math.random(starRadius, screenW - starRadius)
-		local currentY = math.random(starRadius, screenH - starRadius)
-		star.x = currentX
-		star.y = currentY
+	for key,star in ipairs(starTable) do	
+		moveStarRandom(star)
 	end
+end
+
+moveStarRandom = function(star)
+	local currentX = math.random(starRadius, screenW - starRadius)
+	local currentY = math.random(starRadius, screenH - starRadius)
+	star.x = currentX
+	star.y = currentY
+end
+
+collidesAt = function(x,y)
+	for key,star in ipairs(starTable) do	
+		if (math.abs( star.x - x ) < starRadius) then return true end
+		if (math.abs( star.y - y ) < starRadius) then return true end
+	end
+	return false
+end
+
+showScore = function()
+	scoreMessage.text = tostring(calculateScore() + totalScore)
 end
 
 startRound = function()
@@ -286,7 +327,7 @@ endRound = function()
 	    time = 500,
 	    params = { 
 			level = currentLevel,
-			score = calculateScore()
+			score = (calculateScore() + totalScore)
 		}
 	}
 	local sceneClosure = function() 
@@ -315,9 +356,6 @@ calculateScore = function()
 			end
 			totalGuesses = totalGuesses + 1	
 		end
-	end
-	if not correctGuesses == collectableStars then
-		print ("Did not collect all stars")
 	end
 	print ("Right guesses: " .. correctGuesses)
 	print ("Wrong guesses: " .. wrongGuesses)

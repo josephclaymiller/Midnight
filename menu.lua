@@ -25,7 +25,7 @@ local function onPlayBtnRelease()
 	{
 	    effect = "fade",
 	    time = 800,
-	    params = { level = 1 }
+	    params = { level = 1, score = 0 }
 	}
 	storyboard.gotoScene( "starLevel", options )
 	
