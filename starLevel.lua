@@ -19,7 +19,6 @@ local halfW, halfH = display.contentCenterX, display.contentCenterY
 local makeStar -- function to make star
 local makeRandomStar -- function to make a star in a random location
 local makeRandomStars -- function to make n stars in random locations
-local makeStarGrid -- function to make stars in a grid formation
 local onStarTouch -- event listener for stars
 local colorStar -- function to make star shine
 local uncolorStar -- function to return star to normal
@@ -31,7 +30,6 @@ local calculateScore -- function to determine score
 local showScore -- function to display score in scene
 local moveStarsRandom -- function to move the stars randomly
 local moveStarRandom -- moves a star to a random position
-local collidesAt -- fucntion to check if collides at x,y
 local startMovingStars -- start the star animation for collectable stars
 local randomlyMoveStar -- move star to a random location over time
 local blurStar -- set blur on star
@@ -68,16 +66,13 @@ local totalScore -- cumlitive score
 -- Called when the scene's view does not exist:
 function scene:createScene( event )
 	local group = self.view
-	math.randomseed(1313)-- seed random so same stars each time
+	math.randomseed(3)-- seed random so same stars each time
 
 	-- create stars
-	totalStars = event.params.level * 2 + 8
 	maxCollectable = totalStars/2
-
 	stars = makeRandomStars(totalStars)
-	--local stars = makeStarGrid()
 	stars.anchorX, stars.anchorY = 0.5, 0.5
-	stars.x, stars.y = 0, 0 --halfW, halfH
+	stars.x, stars.y = 0, 0
 
 	-- Score
 	totalScore = event.params.score
@@ -120,6 +115,7 @@ function scene:enterScene( event )
 
 	-- Add another star
 	stars:insert(makeRandomStar())
+	totalStars = #starTable
 
 	-- Show stars
 	for key,star in  ipairs(starTable) do	
@@ -171,12 +167,9 @@ showStarPattern = function(n)
 		onComplete=startRound
 	}
 	audio.play( twinkleSound, soundOptions  )
-	-- Start round after delay
-	--timer.performWithDelay( 3000, startRound, 1 )
 end
 
 colorStar = function(star, r, g, b, a)
-	--print( "Color star " .. star.id )
 	-- colorize with filter
 	star.fill.effect.monotone.r = r or star.r
 	star.fill.effect.monotone.g = g or star.g
@@ -185,14 +178,12 @@ colorStar = function(star, r, g, b, a)
 end
 
 uncolorStar = function(star)
-	--star.shine = false
-	--star.fill.effect = nil -- remove fill effect
 	w = 0.5 --whiteness
 	colorStar(star,w,w,w)
 end
 
 uncolorAllStars = function()
-	for key,star in  ipairs(starTable) do
+	for key,star in ipairs(starTable) do
 		uncolorStar(star)
 		star.collected = false
 	end
@@ -203,26 +194,6 @@ makeRandomStars = function(n)
 	for i=1, n do
 		local star = makeRandomStar(i)
 		stars:insert(star)
-	end
-	return stars
-end
-
-makeStarGrid = function()
-	local stars = display.newGroup(screenW, screenH)
-	local tileSize = starRadius * 4
-	local cols = screenW / tileSize
-	local rows = screenH / tileSize
-	local offset = -tileSize*0.5
-	local i = 1
-	for r =1, rows do
-		for c=1, cols do
-			i = i + 1
-			--print ("row:"..r.."col:"..c)
-			local x = c * tileSize + offset
-			local y = r * tileSize + offset
-			local star = makeStar(i,x,y)
-			stars:insert(star)
-		end
 	end
 	return stars
 end
@@ -243,7 +214,6 @@ makeStar = function(id, x, y)
 	starCircle:setFillColor(w,w,w,w)
 	starGroup:insert(starCircle)
 	star.fill.effect = "filter.colorBlurGaussian"
---[[local star = display.newImageRect( "images/star.png", starRadius*2, starRadius*2)]]
 	star.anchorX, star.anchorY = 0.5, 0.5
 	star.x, star.y = x, y
 	star.shine = false
@@ -266,8 +236,6 @@ onStarTouch = function( event )
 		return -- exit early if stars not touchable
 	end
     if event.phase == "began" then	
-		--audio.stop(starChannel)
-        --print( "Touched star " .. star.id )
 		if star.collected then
 			return -- exit early if star has already been collected
 		end
@@ -305,14 +273,6 @@ moveStarRandom = function(star)
 	local currentY = math.random(starRadius, screenH - starRadius)
 	star.x = currentX
 	star.y = currentY
-end
-
-collidesAt = function(x,y)
-	for key,star in ipairs(starTable) do	
-		if (math.abs( star.x - x ) < starRadius) then return true end
-		if (math.abs( star.y - y ) < starRadius) then return true end
-	end
-	return false
 end
 
 showScore = function()
